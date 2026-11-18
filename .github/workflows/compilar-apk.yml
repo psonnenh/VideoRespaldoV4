@@ -1,0 +1,44 @@
+name: Compilar APK v4
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ubicar proyecto (descomprime el ZIP si lo subiste sin extraer)
+        id: ubicar
+        run: |
+          ZIP=$(ls *.zip 2>/dev/null | head -n 1)
+          if [ ! -d app ] && [ -n "$ZIP" ]; then
+            echo "Descomprimiendo $ZIP"
+            mkdir -p proyecto
+            unzip -q "$ZIP" -d proyecto
+            echo "dir=proyecto" >> "$GITHUB_OUTPUT"
+          else
+            echo "dir=." >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+
+      - name: Compilar
+        working-directory: ${{ steps.ubicar.outputs.dir }}
+        run: gradle assembleDebug --no-daemon
+
+      - name: Subir APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoRespaldo-v4-APK
+          path: ${{ steps.ubicar.outputs.dir }}/app/build/outputs/apk/debug
+          if-no-files-found: error
